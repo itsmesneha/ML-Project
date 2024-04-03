@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: ML-project
+Version: 0.0.1
+Summary: An end to end ml project
+Author: Sneha Singh
+Author-email: snehassinggh65@gmail.com
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: flask
+Requires-Dist: scikit-learn
+Requires-Dist: seaborn
