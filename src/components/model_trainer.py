@@ -1,105 +1,57 @@
-import os 
-import sys 
-from dataclasses import dataclass 
-import pickle
-
-import numpy as np 
 import pandas as pd 
-from sklearn.impute import SimpleImputer 
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder
-from sklearn.pipeline import Pipeline 
-from sklearn.compose import ColumnTransformer
-from src.exception import CustomException 
+import numpy as np 
+import sys 
+import os
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet 
+from sklearn.tree import DecisionTreeRegressor
 from src.logger import logging 
-from src.utils import save_function
-
+from src.exception import CustomException 
+from dataclasses import dataclass
+from src.utils import save_function 
+from src.utils import model_performance 
 
 @dataclass 
-class DataTransformationConfig:
-    preprocessor_obj_file_path = os.path.join('artifacts', 'preprocessor.pkl')
-
-class DataTransformation: 
-    def __init__(self): 
-        self.data_transformation_config = DataTransformationConfig()
+class ModelTrainerConfig():
+    trained_model_file_path = os.path.join("artifacts", "model.pkl")
 
 
-    def get_data_transformation_object(self): 
+class ModelTrainer():
+    def __init__(self):
+        self.model_trainer_config = ModelTrainerConfig()
+
+    def initiate_model_training(self, train_array, test_array): 
         try: 
-            logging.info("Data Transformation has been initiated") 
-            # Define which columns should be ordinal-encoded and which should be scaled
-            categorical_cols = ['cut', 'color','clarity']
-            numerical_cols = ['carat', 'depth','table', 'x', 'y', 'z']
+            logging.info("Seggregating the dependent and independent variables")
+            X_train, y_train, X_test, y_test = (train_array[:, :-1], 
+                                                train_array[:,-1], 
+                                                test_array[:, :-1], 
+                                                test_array[:,-1])
+            models = {
+                "LinearRegression": LinearRegression(),
+                "Ridge": Ridge(), 
+                "Lasso":Lasso(), 
+                "ElasticNet": ElasticNet(), 
+                "DecisionTree": DecisionTreeRegressor()
+            }
+            model_report: dict = model_performance(X_train, y_train, X_test, y_test, models)
+
+            print(model_report)
+            print("\n"*100)
+            logging.info(f"Model Report: {model_report}")
+
+            # Best model
+            best_model_score = max(sorted(model_report.values()))
             
-            # Define the custom ranking for each ordinal variable
-            cut_categories = ['Fair', 'Good', 'Very Good','Premium','Ideal']
-            color_categories = ['D', 'E', 'F', 'G', 'H', 'I', 'J']
-            clarity_categories = ['I1','SI2','SI1','VS2','VS1','VVS2','VVS1','IF']
+            best_model_name = list(model_report.keys())[list(model_report.values()).index(best_model_score)] # Study again
             
-            logging.info('Pipeline Initiated')
+            best_model = models[best_model_name]
 
-            ## Numerical Pipeline
-            num_pipeline=Pipeline(
-                steps=[
-                ('imputer',SimpleImputer(strategy='median')),
-                ('scaler',StandardScaler())
+            print(f"The best model is {best_model_name}, with R2 Score: {best_model_score}")
+            print("\n"*100)
+            logging.info(f"The best model is {best_model_name}, with R2 Score: {best_model_score}")
+            save_function(file_path= self.model_trainer_config.trained_model_file_path, obj = best_model)
 
-                ]
-
-            )
-
-            # Categorigal Pipeline
-            cat_pipeline=Pipeline(
-                steps=[
-                ('imputer',SimpleImputer(strategy='most_frequent')),
-                ('ordinalencoder',OrdinalEncoder(categories=[cut_categories,color_categories,clarity_categories])),
-                ('scaler',StandardScaler())
-                ]
-
-            )
-
-            preprocessor=ColumnTransformer([
-            ('num_pipeline',num_pipeline,numerical_cols),
-            ('cat_pipeline',cat_pipeline,categorical_cols)
-            ])
-            
-            return preprocessor
-
-            logging.info('Pipeline Completed')
 
         except Exception as e: 
-            logging.info("Error occured in Data Transformation class")
-            raise CustomException(e,sys)
-    
-    def initiate_data_transformation(self, train_path, test_path):
-        try: 
-            train_df = pd.read_csv(train_path)
-            test_df = pd.read_csv(test_path)
-
-            logging.info("Obtaining the preprocessing object")
-
-            preprocessing_obj = self.get_data_transformation_object()
-            target_colum_name = 'price'
-            drop_columns = [target_colum_name, 'id']
-
-            input_feature_train_df = train_df.drop(columns= drop_columns, axis = 1)
-            target_colum_name_train_df = train_df[target_colum_name]
-
-            input_feature_test_df = test_df.drop(columns= drop_columns, axis = 1)
-            target_colum_name_test_df = test_df[target_colum_name]
-
-            ## 
-            input_feature_train_arr = preprocessing_obj.fit_transform(input_feature_train_df)
-            input_feature_test_arr = preprocessing_obj.transform(input_feature_test_df)
-
-            logging.info("Applying the preprocessing object to train and test datasets")
-
-            train_arr = np.c_[input_feature_train_arr, np.array(target_colum_name_train_df)]
-            test_arr = np.c_[input_feature_test_arr, np.array(target_colum_name_test_df)]
-
-            save_function(
-                file_path= self.data_transformation_config.preprocessor_obj_file_path, obj = preprocessing_obj
-            )   
-    
-        except Exception as e:
-            logging.info("Error occured in initiate data transformation function")
+            logging.info("Error occured during model training")
             raise CustomException(e,sys)

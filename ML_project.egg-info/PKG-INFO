@@ -9,3 +9,4 @@ Requires-Dist: numpy
 Requires-Dist: flask
 Requires-Dist: scikit-learn
 Requires-Dist: seaborn
+Requires-Dist: pickles
